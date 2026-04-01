@@ -54,6 +54,16 @@ node install.js
 
 Restart Claude Code for the hook to take effect.
 
+## Update
+
+```bash
+cd npm-install-checker
+git pull
+node install.js
+```
+
+Restart Claude Code for changes to take effect.
+
 ## Uninstall
 
 ```bash

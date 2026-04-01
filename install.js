@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Installer for npm-install-checker Claude Code hook
 // Copies the hook file and registers it in settings.json
+// Run again after `git pull` to update the hook file
 
 const fs = require('fs');
 const path = require('path');
@@ -25,9 +26,16 @@ if (!fs.existsSync(hooksDir)) {
   fs.mkdirSync(hooksDir, { recursive: true });
 }
 
+// Check if this is an update
+const isUpdate = fs.existsSync(hookDest);
+
 // Copy hook file
 fs.copyFileSync(hookSource, hookDest);
-console.log(`Copied ${hookFileName} to ${hookDest}`);
+if (isUpdate) {
+  console.log(`Updated ${hookFileName} in ${hooksDir}`);
+} else {
+  console.log(`Installed ${hookFileName} to ${hooksDir}`);
+}
 
 // Build the command path with forward slashes for cross-platform compatibility
 const hookCommand = `node "${hookDest.replace(/\\/g, '/')}"`;
@@ -64,12 +72,16 @@ const alreadyRegistered = settings.hooks.PreToolUse.some(entry =>
 );
 
 if (alreadyRegistered) {
-  console.log('Hook already registered in settings.json. Skipping.');
+  if (!isUpdate) console.log('Hook already registered in settings.json. Skipping.');
 } else {
   settings.hooks.PreToolUse.push(hookEntry);
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
   console.log('Registered hook in settings.json');
 }
 
-console.log('\nnpm-install-checker installed successfully!');
-console.log('Restart Claude Code for the hook to take effect.');
+if (isUpdate) {
+  console.log('\nnpm-install-checker updated successfully!');
+} else {
+  console.log('\nnpm-install-checker installed successfully!');
+}
+console.log('Restart Claude Code for changes to take effect.');
