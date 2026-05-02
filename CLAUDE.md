@@ -6,7 +6,7 @@ A Claude Code PreToolUse hook that checks npm packages against the registry befo
 
 ## Active Work
 
-- **Last session (2026-04-17):** Security scan run. Initial CLAUDE.md created.
+- **Last session (2026-05-01):** V6.3 light rescan — no code changes since last scan; no package.json so no npm audit. (Previous 2026-04-17: Security scan run. Initial CLAUDE.md created.)
 - **Current focus:** 
 - **Next:** Review scan findings and address any P1/P2 flags.
 
