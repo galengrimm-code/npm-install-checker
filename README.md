@@ -15,19 +15,19 @@ Every time Claude Code runs `npm install`, `npm i`, or `npm add` with new packag
 
 ### Safety Checks
 
-| Check | Flags when... |
-|---|---|
-| **Exists** | Package not found on registry (typo?) |
-| **Weekly downloads** | Less than 1,000 downloads/week |
-| **Package age** | Published less than 30 days ago |
-| **Last publish** | Not updated in over 2 years (abandoned?) |
-| **Maintainers** | Zero maintainers listed |
-| **Dependencies** | More than 30 direct dependencies |
-| **Install scripts** | Has `preinstall`, `install`, or `postinstall` scripts |
-| **Deprecated** | Marked as deprecated on npm |
-| **License** | No license specified |
-| **Vulnerabilities** | Has known security advisories |
-| **Typosquat** | Name is within 2 edits of a popular package |
+| Check                | Flags when...                                         |
+| -------------------- | ----------------------------------------------------- |
+| **Exists**           | Package not found on registry (typo?)                 |
+| **Weekly downloads** | Less than 1,000 downloads/week                        |
+| **Package age**      | Published less than 30 days ago                       |
+| **Last publish**     | Not updated in over 2 years (abandoned?)              |
+| **Maintainers**      | Zero maintainers listed                               |
+| **Dependencies**     | More than 30 direct dependencies                      |
+| **Install scripts**  | Has `preinstall`, `install`, or `postinstall` scripts |
+| **Deprecated**       | Marked as deprecated on npm                           |
+| **License**          | No license specified                                  |
+| **Vulnerabilities**  | Has known security advisories                         |
+| **Typosquat**        | Name is within 2 edits of a popular package           |
 
 ### Example output
 
