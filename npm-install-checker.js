@@ -138,16 +138,81 @@ const BOOLEAN_FLAGS = new Set([
 
 const VALUE_FLAGS = new Set(["--registry", "--tag", "--cache", "--prefix", "--workspace", "-w"]);
 
-function parsePackageNames(command) {
-  const segment = command.split(/\s*(?:&&|\|\||[;|])\s*/)[0];
+// npx executes packages directly — same supply-chain exposure as installing,
+// with no install step for this hook to ride on. Routine tools are allowlisted
+// (zero friction); anything else gets the same registry checks as installs.
+const NPX_ALLOWLIST = new Set([
+  "prettier",
+  "eslint",
+  "playwright",
+  "@playwright/test",
+  "vercel",
+  "firebase-tools",
+  "firebase",
+  "supabase",
+  "vite",
+  "next",
+  "vitest",
+  "jest",
+  "typescript",
+  "tsc",
+  "tailwindcss",
+  "shadcn",
+  "serve",
+]);
 
+const NPX_VALUE_FLAGS = new Set([
+  "-c",
+  "--call",
+  "--shell",
+  "--node-options",
+  "--registry",
+  "--cache",
+  "--cwd",
+  "-w",
+  "--workspace",
+]);
+
+// "lodash@4.17.21" -> "lodash"; "@scope/pkg@1.0.0" -> "@scope/pkg"
+function stripVersion(token) {
+  let pkg = token;
+  if (pkg.startsWith("@")) {
+    const slashIdx = pkg.indexOf("/");
+    if (slashIdx !== -1) {
+      const afterSlash = pkg.slice(slashIdx + 1);
+      const atIdx = afterSlash.indexOf("@");
+      if (atIdx !== -1) {
+        pkg = pkg.slice(0, slashIdx + 1 + atIdx);
+      }
+    }
+  } else {
+    const atIdx = pkg.indexOf("@");
+    if (atIdx > 0) pkg = pkg.slice(0, atIdx);
+  }
+  return pkg;
+}
+
+function isLocalOrUrl(token) {
+  return (
+    token.startsWith(".") ||
+    token.startsWith("/") ||
+    token.includes("://") ||
+    token.endsWith(".tgz")
+  );
+}
+
+function tokenize(argsStr) {
+  return argsStr.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+}
+
+function parseNpmInstallPackages(segment) {
   const match = segment.match(/^npm\s+(install|i|add)\b(.*)$/);
   if (!match) return [];
 
   const argsStr = match[2].trim();
   if (!argsStr) return [];
 
-  const tokens = argsStr.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+  const tokens = tokenize(argsStr);
   const packages = [];
   let skipNext = false;
 
@@ -163,34 +228,64 @@ function parsePackageNames(command) {
       continue;
     }
 
-    if (
-      token.startsWith(".") ||
-      token.startsWith("/") ||
-      token.includes("://") ||
-      token.endsWith(".tgz")
-    ) {
-      continue;
-    }
+    if (isLocalOrUrl(token)) continue;
 
-    let pkg = token;
-    if (pkg.startsWith("@")) {
-      const slashIdx = pkg.indexOf("/");
-      if (slashIdx !== -1) {
-        const afterSlash = pkg.slice(slashIdx + 1);
-        const atIdx = afterSlash.indexOf("@");
-        if (atIdx !== -1) {
-          pkg = pkg.slice(0, slashIdx + 1 + atIdx);
-        }
-      }
-    } else {
-      const atIdx = pkg.indexOf("@");
-      if (atIdx > 0) pkg = pkg.slice(0, atIdx);
-    }
-
-    packages.push(pkg);
+    packages.push(stripVersion(token));
   }
 
   return packages;
+}
+
+// npx <pkg> / npx -y <pkg> / npx -p <pkg> -c "..." / npm exec [--] <pkg>
+function parseNpxPackages(segment) {
+  const match = segment.match(/^(?:npx|npm\s+exec)\b(.*)$/);
+  if (!match) return [];
+
+  const tokens = tokenize(match[1].trim());
+  const packages = [];
+  let i = 0;
+
+  for (; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t === "--") {
+      i++;
+      break;
+    }
+    if (t === "-p" || t === "--package") {
+      const v = tokens[++i];
+      if (v && !isLocalOrUrl(v)) packages.push(stripVersion(v));
+      continue;
+    }
+    if (t.startsWith("--package=")) {
+      const v = t.slice("--package=".length);
+      if (v && !isLocalOrUrl(v)) packages.push(stripVersion(v));
+      continue;
+    }
+    if (t.startsWith("-")) {
+      if (NPX_VALUE_FLAGS.has(t)) i++;
+      continue;
+    }
+    break; // first positional = the package npx will execute
+  }
+
+  const positional = tokens[i];
+  if (positional && !positional.startsWith("-") && !isLocalOrUrl(positional)) {
+    packages.push(stripVersion(positional));
+  }
+
+  return packages.filter((p) => p && !NPX_ALLOWLIST.has(p));
+}
+
+function parsePackageNames(command) {
+  // Scan EVERY segment of compound commands — "cd app && npm install evil"
+  // and "npm run build; npx evil" must both be caught, not just segment one.
+  const segments = command.split(/\s*(?:&&|\|\||[;|])\s*/);
+  const packages = [];
+  for (const segment of segments) {
+    packages.push(...parseNpmInstallPackages(segment.trim()));
+    packages.push(...parseNpxPackages(segment.trim()));
+  }
+  return [...new Set(packages)];
 }
 
 // --- HTTP HELPERS ---
